@@ -9,8 +9,8 @@ _G.ABSTRACT_TERMINAL = {
 		-- very last mode when terminal toggled
 		-- this will help to avid auto scroll to bottom in terminal when toggling
 		---@type "nt" | "t"
-		toggle_last_mode = "t"
-	}
+		toggle_last_mode = "t",
+	},
 }
 
 --- Setup abstract-terminal plugin
@@ -18,7 +18,6 @@ _G.ABSTRACT_TERMINAL = {
 function M.setup(opts)
 	--- Merge user opts with defaults
 	_G.ABSTRACT_TERMINAL.opts = opts or {}
-
 
 	-- Register commands
 	commands.create_user_cmd()
