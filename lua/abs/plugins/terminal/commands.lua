@@ -10,13 +10,21 @@ function M.create_user_cmd()
 		local cmd = ctx.args
 		if cmd == "toggle" then
 			terminal.toggle_terminal()
+		elseif cmd == "new" then
+			terminal.new_terminal()
+		elseif cmd == "next" then
+			terminal.next_terminal()
+		elseif cmd == "prev" then
+			terminal.prev_terminal()
+		elseif cmd == "close" then
+			terminal.close_terminal()
 		else
 			vim.notify(string.format('AbstractTerminal: unknown command "%s"', cmd), vim.log.levels.ERROR)
 		end
 	end, {
 		nargs = 1,
 		complete = function()
-			return { "toggle" }
+			return { "toggle", "new", "next", "prev", "close" }
 		end,
 		desc = "AbstractTerminal plugin: use subcommands (e.g. toggle)",
 	})
