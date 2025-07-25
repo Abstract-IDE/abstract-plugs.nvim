@@ -9,3 +9,9 @@
 
 --- @class AbstractTerminalOptions: AbstractTerminalUi
 --- @field keymap? table<"toggle", string> Keybindings, e.g. { toggle = "<C-t>" }
+
+--- @class AbstractTerminalState
+---@field bufs integer[]               -- all terminal buffer IDs
+---@field win integer?                 -- handle for the floating window
+---@field current integer              -- which terminal is active (1‑based)
+---@field modes table<integer, "t"|"n"> -- last mode in each terminal ("t" for terminal, "n" for normal)

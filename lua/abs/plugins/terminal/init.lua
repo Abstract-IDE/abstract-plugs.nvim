@@ -25,9 +25,8 @@ function M.setup(opts)
 	-- Setup keymap
 	keymap.setup_keymap()
 
-
 	-- Expose the APIs
-	local terminal = require('abs.plugins.terminal.feature')
+	local terminal = require("abs.plugins.terminal.feature")
 	M.toggle = terminal.toggle_terminal
 	M.new = terminal.new_terminal
 	M.prev = terminal.prev_terminal

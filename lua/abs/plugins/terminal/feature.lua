@@ -1,27 +1,17 @@
--- abs/plugins/terminal/features.lua
 local api, fn = vim.api, vim.fn
 
----@class AbstractTerminalMultiOpts
----@field width? number            -- fraction of editor width (0.1-1.0)
----@field height? number           -- fraction of editor height (0.1-1.0)
----@field offset_row? number       -- lines from bottom (>=0)
----@field offset_col? number       -- columns from left (>=0)
----@field border? string           -- border style: "none"|"single"|"double"|"rounded"
+---@class AbstractTerminalState
+local M = {
+	bufs = {},
+	win = nil,
+	current = 0,
+	modes = {},
+}
 
----@class AbstractTerminalMulti
----@field bufs integer[]                     -- list of terminal buffer IDs
----@field win integer?                       -- floating window handle
----@field current integer                    -- index of current terminal (1-based)
----@field modes table<integer, "t"|"n">    -- last mode per terminal ('t' or 'n')
-local M = { bufs = {}, win = nil, current = 0, modes = {} }
-
--- Augroup to guard against stray buffer entries
----@type integer
+-- group for our autocmds that keep the float pinned to its buffer
 local float_guard = api.nvim_create_augroup("AbstractTerminalFloatGuard", { clear = true })
 
---- Compute float dimensions and position
----@param opts table                         -- any table with width, height, offset_row, offset_col, border
----@return integer width, integer height, integer row, integer col
+-- calculate width, height, and position for the floating window
 local function get_dimensions(opts)
 	local cols, lines = vim.o.columns, vim.o.lines
 	local w = math.floor(cols * (opts.width or 0.6))
@@ -31,45 +21,35 @@ local function get_dimensions(opts)
 	return w, h, r, c
 end
 
---- Update the floating window title
----@return nil
+-- refresh the title bar to show "Term X/Y"
 local function update_title()
 	if M.win and api.nvim_win_is_valid(M.win) then
-		local title = string.format("Term %d/%d", M.current, #M.bufs)
-		api.nvim_win_set_config(M.win, { title = title })
+		local opts = _G.ABSTRACT_TERMINAL.opts or {}
+		api.nvim_win_set_config(M.win, {
+			title = string.format(" %s %d/%d ", opts.title or "Terminal", M.current, #M.bufs),
+		})
 	end
 end
 
---- Guard the terminal float against buffer switches
----@param buf integer
----@return nil
+-- make sure nothing else steals our float's buffer
 local function guard_buf(buf)
 	api.nvim_clear_autocmds({ group = float_guard })
 	api.nvim_create_autocmd("BufWinEnter", {
 		group = float_guard,
+		nested = true,
 		callback = function(ctx)
-			local cur_win = api.nvim_get_current_win()
-			if cur_win == M.win and ctx.buf ~= buf then
-				api.nvim_win_set_buf(M.win, buf)
+			local win = api.nvim_get_current_win()
+			if win == M.win and ctx.buf ~= buf then
+				pcall(api.nvim_win_set_buf, M.win, buf)
 			end
 		end,
 	})
 end
 
---- Open or refresh the floating terminal window
----@param buf integer
----@return nil
+-- open a new floating window for the given buffer
 local function open_floating(buf)
 	local opts = _G.ABSTRACT_TERMINAL.opts or {}
 	local w, h, r, c = get_dimensions(opts)
-
-	if M.win and api.nvim_win_is_valid(M.win) then
-		api.nvim_win_set_buf(M.win, buf)
-		update_title()
-		guard_buf(buf)
-		api.nvim_set_current_win(M.win)
-		return
-	end
 
 	M.win = api.nvim_open_win(buf, true, {
 		relative = "editor",
@@ -82,42 +62,41 @@ local function open_floating(buf)
 		title = string.format(" %s %d/%d ", opts.title or "Terminal", M.current, #M.bufs),
 		title_pos = opts.title_pos or "right",
 	})
+
 	guard_buf(buf)
 end
 
---- Remove invalid buffers and clamp current index
----@return nil
+-- drop any dead terminal buffers and adjust current index
 local function prune_buffers()
-	local valid_bufs, valid_modes = {}, {}
+	local live, last_modes = {}, {}
 	for i, buf in ipairs(M.bufs) do
 		if api.nvim_buf_is_valid(buf) then
-			table.insert(valid_bufs, buf)
-			valid_modes[#valid_bufs] = M.modes[i]
+			table.insert(live, buf)
+			last_modes[#live] = M.modes[i]
 		end
 	end
-	M.bufs = valid_bufs
-	M.modes = valid_modes
-	if #M.bufs == 0 then
+
+	M.bufs = live
+	M.modes = last_modes
+
+	if #live == 0 then
 		M.current = 0
 	else
-		if M.current < 1 then
-			M.current = 1
-		end
-		if M.current > #M.bufs then
-			M.current = #M.bufs
-		end
+		M.current = math.max(1, math.min(M.current, #live))
 	end
 end
 
---- Create and open a new terminal (fresh buffer)
----@return nil
+-- create a brand-new terminal buffer and show it
 function M.new_terminal()
 	prune_buffers()
+
+	-- if there's already a float, close it first
 	if M.win and api.nvim_win_is_valid(M.win) then
 		api.nvim_win_close(M.win, true)
 		api.nvim_clear_autocmds({ group = float_guard })
 		M.win = nil
 	end
+
 	local buf = api.nvim_create_buf(false, true)
 	vim.bo[buf].bufhidden = "hide"
 	table.insert(M.bufs, buf)
@@ -128,17 +107,17 @@ function M.new_terminal()
 	api.nvim_set_current_win(M.win)
 	api.nvim_set_current_buf(buf)
 	fn.jobstart(vim.o.shell, { term = true })
-	api.nvim_command("startinsert")
+	vim.cmd.startinsert()
 end
 
---- Toggle the floating terminal (create first if none)
----@return nil
+-- show or hide the floating terminal
 function M.toggle_terminal()
 	prune_buffers()
+
 	if M.current == 0 then
-		M.new_terminal()
-		return
+		return M.new_terminal()
 	end
+
 	if M.win and api.nvim_win_is_valid(M.win) then
 		M.modes[M.current] = api.nvim_get_mode().mode
 		api.nvim_win_close(M.win, true)
@@ -148,80 +127,89 @@ function M.toggle_terminal()
 		open_floating(M.bufs[M.current])
 		api.nvim_set_current_win(M.win)
 		if M.modes[M.current] == "t" then
-			api.nvim_command("startinsert")
+			vim.cmd.startinsert()
 		end
 	end
 end
 
---- Switch to the next terminal
----@param cycle boolean? defaults to true
----@return nil
+-- helper to move forward or back through terminals
+local function _cycle(direction, cycle)
+	prune_buffers()
+	if #M.bufs <= 1 or not (M.win and api.nvim_win_is_valid(M.win)) then
+		return
+	end
+
+	-- remember and exit the current mode
+	M.modes[M.current] = api.nvim_get_mode().mode
+	if M.modes[M.current] == "t" then
+		vim.cmd.stopinsert()
+	end
+
+	-- do the switch on the next tick to avoid mode-reentry errors
+	vim.schedule(function()
+		if not (M.win and api.nvim_win_is_valid(M.win)) then
+			return
+		end
+
+		local idx = M.current + direction
+		if idx > #M.bufs then
+			if cycle == false then
+				return
+			end
+			idx = 1
+		elseif idx < 1 then
+			if cycle == false then
+				return
+			end
+			idx = #M.bufs
+		end
+
+		api.nvim_win_close(M.win, true)
+		M.win = nil
+		M.current = idx
+
+		open_floating(M.bufs[M.current])
+		api.nvim_set_current_win(M.win)
+		update_title()
+
+		if M.modes[M.current] == "t" then
+			vim.cmd.startinsert()
+		end
+	end)
+end
+
+-- go to the next terminal (wrap by default)
 function M.next_terminal(cycle)
-	prune_buffers()
-	if #M.bufs <= 1 then
-		return
-	end
-	if M.win and api.nvim_win_is_valid(M.win) then
-		api.nvim_set_current_win(M.win)
-		M.modes[M.current] = api.nvim_get_mode().mode
-	end
-	local idx = M.current + 1
-	if idx > #M.bufs then
-		if cycle == false then
-			return
-		end
-		idx = 1
-	end
-	M.current = idx
-	open_floating(M.bufs[M.current])
-	api.nvim_set_current_win(M.win)
-	update_title()
-	if M.modes[M.current] == "t" then
-		api.nvim_command("startinsert")
-	end
+	_cycle(1, cycle)
 end
 
---- Switch to the previous terminal
----@param cycle boolean? defaults to true
----@return nil
+-- go to the previous terminal (wrap by default)
 function M.prev_terminal(cycle)
-	prune_buffers()
-	if #M.bufs <= 1 then
-		return
-	end
-	if M.win and api.nvim_win_is_valid(M.win) then
-		api.nvim_set_current_win(M.win)
-		M.modes[M.current] = api.nvim_get_mode().mode
-	end
-	local idx = M.current - 1
-	if idx < 1 then
-		if cycle == false then
-			return
-		end
-		idx = #M.bufs
-	end
-	M.current = idx
-	open_floating(M.bufs[M.current])
-	api.nvim_set_current_win(M.win)
-	update_title()
-	if M.modes[M.current] == "t" then
-		api.nvim_command("startinsert")
-	end
+	_cycle(-1, cycle)
 end
 
---- Close the current terminal
----@return nil
+-- delete the current terminal and pick the next one
 function M.close_terminal()
 	prune_buffers()
 	if M.current == 0 then
 		return
 	end
+
+	if M.win and api.nvim_win_is_valid(M.win) then
+		api.nvim_set_current_win(M.win)
+		if api.nvim_get_mode().mode == "t" then
+			vim.cmd.stopinsert()
+		end
+	end
+
 	local buf = M.bufs[M.current]
 	if api.nvim_buf_is_valid(buf) then
 		api.nvim_buf_delete(buf, { force = true })
 	end
+
 	table.remove(M.bufs, M.current)
 	table.remove(M.modes, M.current)
+
 	if #M.bufs == 0 then
 		if M.win and api.nvim_win_is_valid(M.win) then
 			api.nvim_win_close(M.win, true)
@@ -231,14 +219,16 @@ function M.close_terminal()
 		M.current = 0
 		return
 	end
+
 	if M.current > #M.bufs then
 		M.current = #M.bufs
 	end
+
 	open_floating(M.bufs[M.current])
 	api.nvim_set_current_win(M.win)
 	update_title()
 	if M.modes[M.current] == "t" then
-		api.nvim_command("startinsert")
+		vim.cmd.startinsert()
 	end
 end
 
