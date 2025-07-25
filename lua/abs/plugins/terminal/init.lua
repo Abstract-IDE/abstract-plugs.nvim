@@ -28,11 +28,11 @@ function M.setup(opts)
 
 	-- Expose the APIs
 	local terminal = require('abs.plugins.terminal.feature')
-	M.toggle = terminal.toggle_terminal()
-	M.new = terminal.new_terminal()
-	M.prev = terminal.prev_terminal()
-	M.next = terminal.next_terminal()
-	M.close = terminal.close_terminal()
+	M.toggle = terminal.toggle_terminal
+	M.new = terminal.new_terminal
+	M.prev = terminal.prev_terminal
+	M.next = terminal.next_terminal
+	M.close = terminal.close_terminal
 end
 
 return M
