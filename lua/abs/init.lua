@@ -8,4 +8,8 @@ M.terminal = function()
 	return require("abs.plugins.terminal")
 end
 
+M.whitespace = function()
+	return require("abs.plugins.whitespace")
+end
+
 return M
