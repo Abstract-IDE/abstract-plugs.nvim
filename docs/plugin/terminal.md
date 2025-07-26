@@ -61,6 +61,15 @@ Open or close the floating terminal:
 :AbstractTerminal close
 ```
 
+above equivalent using APIs
+
+```
+require("abs").terminal().new()
+require("abs").terminal().prev()
+require("abs").terminal().next()
+require("abs").terminal().close()
+```
+
 ---
 
 ## Keymaps

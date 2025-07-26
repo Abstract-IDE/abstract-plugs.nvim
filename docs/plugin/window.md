@@ -21,6 +21,8 @@ Use your favorite plugin manager. For [lazy.nvim](https://github.com/folke/lazy.
 }
 ```
 
+require('abs').window().setup()
+
 ---
 
 ## Usage
@@ -38,9 +40,9 @@ Use your favorite plugin manager. For [lazy.nvim](https://github.com/folke/lazy.
 Bind to any key you prefer (e.g. `<leader>m`):
 
 ```lua
-vim.keymap.set('n', '<leader>m', ':AbstractWindow toggle-win-max<CR>',                        { noremap = true, silent = true })
+vim.keymap.set('n', '<leader>m', ':AbstractWindow toggle-win-max<CR>',                     { noremap = true, silent = true })
 -- OR
-vim.keymap.set('n', '<leader>m', function() require("abstract-window").toggle.maximize() end, { noremap = true, silent = true })
+vim.keymap.set('n', '<leader>m', function() require("abs").window().toggle.maximize() end, { noremap = true, silent = true })
 ```
 
 ---
