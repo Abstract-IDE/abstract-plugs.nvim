@@ -1,5 +1,4 @@
-````markdown
-# visual_whitespace.nvim
+# Whitespace
 
 Render whitespace glyphs in selection, insert and normal mode
 just like VSCode’s `renderWhitespace: selection`.
@@ -17,7 +16,6 @@ Use your favorite plugin manager.
   'Abstract-IDE/abstract-plugs.nvim',
 }
 ```
-````
 
 ---
 
@@ -52,9 +50,9 @@ require('abs').whitespace().setup({
 
 ## Usage
 
-`:AbstractWhitespace toggle` Toggle rendering on or off
-`:AbstractWhitespace enable` enable rendering
-`:AbstractWhitespace disable` disable rendering
+`:AbstractWhitespace toggle` Toggle rendering on or off <br>
+`:AbstractWhitespace enable` enable rendering <br>
+`:AbstractWhitespace disable` disable rendering <br>
 
 above equivalent using APIs
 
